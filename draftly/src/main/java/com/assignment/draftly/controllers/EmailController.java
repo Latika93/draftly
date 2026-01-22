@@ -21,10 +21,7 @@ import com.assignment.draftly.dto.ReplyDraftResponse;
 import com.assignment.draftly.enums.Tone;
 import com.assignment.draftly.integrations.GmailClient;
 import com.assignment.draftly.services.AuthService;
-import com.assignment.draftly.services.DraftLoggingService;
 import com.assignment.draftly.services.EmailDraftService;
-import com.assignment.draftly.services.EmailService;
-import com.assignment.draftly.services.JwtService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,11 +32,8 @@ import lombok.extern.slf4j.Slf4j;
 public class EmailController {
 
     private final AuthService authService;
-    private final EmailService emailService;
     private final GmailClient gmailClient;
-    private final JwtService jwtService;
     private final EmailDraftService emailDraftService;
-    private final DraftLoggingService draftLoggingService;
 
     @GetMapping("/emails")
     public List<String> getEmails(Authentication authentication) {

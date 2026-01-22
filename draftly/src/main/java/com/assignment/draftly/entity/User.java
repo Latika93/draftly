@@ -47,7 +47,6 @@ public class User implements UserDetails {
 
     @Override
     public @Nullable String getPassword() {
-//        user.setPassword(passwordEncoder.encode("password123"));
         return this.password;
     }
 

@@ -25,54 +25,6 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private final UserService userService;
     private final OAuth2AuthorizedClientService clientService;
 
-//    @Override
-//    public void onAuthenticationSuccess(
-//            HttpServletRequest request,
-//            HttpServletResponse response,
-//            Authentication authentication
-//    ) throws IOException, java.io.IOException {
-//
-//        OAuth2AuthenticationToken token =
-//                (OAuth2AuthenticationToken) authentication;
-//
-//        DefaultOAuth2User oAuth2User =
-//                (DefaultOAuth2User) token.getPrincipal();
-//
-//        String email = oAuth2User.getAttribute("email");
-//
-//        // 1️⃣ Save or fetch user
-//        User user = userService.findOrCreateOAuthUser(email);
-//
-//        // 2️⃣ Store Google access token (INTERNAL USE ONLY)
-//        OAuth2AuthorizedClient client = clientService.loadAuthorizedClient(
-//                token.getAuthorizedClientRegistrationId(),
-//                token.getName()
-//        );
-//
-//        if (client != null && client.getAccessToken() != null) {
-//            String googleAccessToken = client.getAccessToken().getTokenValue();
-//            user.setOauthtoken(googleAccessToken);
-//            userService.save(user);
-//            log.info("Google access token stored for user: {}", email);
-//        } else {
-//            log.warn("Could not retrieve Google access token for user: {}", email);
-//        }
-//
-//        log.info("OAuth login successful for: {}", email);
-//
-//        // 3️⃣ Generate YOUR JWT
-//        String appJwt = jwtService.generateAccessToken(user);
-//        log.info(appJwt);
-//
-//        // 4️⃣ Return JWT to frontend
-//        response.setContentType("application/json");
-//        response.getWriter().write("""
-//        {
-//          "token": "%s"
-//        }
-//        """.formatted(appJwt));
-//    }
-
     @Override
     public void onAuthenticationSuccess(
             HttpServletRequest request,

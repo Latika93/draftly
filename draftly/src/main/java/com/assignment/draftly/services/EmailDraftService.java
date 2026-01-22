@@ -73,7 +73,6 @@ Recipient: %s
 Context: %s
 """.formatted(styleExamples, recipient, context);
 
-//        return openAiClient.generate(systemPrompt, userPrompt);
         String aiDraft = openAiClient.generate(systemPrompt, userPrompt);
 
         String accessToken = authService.getAccessToken(auth);
