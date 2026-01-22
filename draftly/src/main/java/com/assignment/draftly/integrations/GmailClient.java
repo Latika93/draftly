@@ -12,6 +12,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import com.assignment.draftly.dto.InboxEmail;
@@ -46,8 +48,8 @@ public class GmailClient {
                     .map(m -> (String) m.get("id"))
                     .toList();
         } catch (HttpClientErrorException e) {
-            log.error("Gmail API error status: {}", e.getStatusCode());
-            log.error("Gmail API error body: {}", e.getResponseBodyAsString());
+            log.error("[GMAIL_API_ERROR] operation=fetchLast10SentMessageIds statusCode={} errorBody={}", 
+                    e.getStatusCode(), e.getResponseBodyAsString());
             String errorMessage = "Failed to fetch sent messages from Gmail API";
             if (e.getStatusCode().value() == 401) {
                 errorMessage = "Gmail API authentication failed. Please reconnect your Google account.";
@@ -78,8 +80,8 @@ public class GmailClient {
 
             return response.getBody();
         } catch (HttpClientErrorException e) {
-            log.error("Gmail API error status: {}", e.getStatusCode());
-            log.error("Gmail API error body: {}", e.getResponseBodyAsString());
+            log.error("[GMAIL_API_ERROR] operation=fetchMessageById messageId={} statusCode={} errorBody={}", 
+                    messageId, e.getStatusCode(), e.getResponseBodyAsString());
             String errorMessage = "Failed to fetch message from Gmail API";
             if (e.getStatusCode().value() == 401) {
                 errorMessage = "Gmail API authentication failed. Please reconnect your Google account.";
@@ -173,12 +175,12 @@ public class GmailClient {
                             Map.class
                     );
 
-            log.info("Gmail draft created. Status: {}", response.getStatusCode());
-            log.info("Response body: {}", response.getBody());
+            log.info("[GMAIL_OPERATION] operation=createDraft to={} statusCode={}", 
+                    to, response.getStatusCode());
 
         } catch (HttpClientErrorException e) {
-            log.error("Gmail API error status: {}", e.getStatusCode());
-            log.error("Gmail API error body: {}", e.getResponseBodyAsString());
+            log.error("[GMAIL_API_ERROR] operation=createDraft to={} statusCode={} errorBody={}", 
+                    to, e.getStatusCode(), e.getResponseBodyAsString());
             String errorMessage = "Failed to create draft in Gmail API";
             if (e.getStatusCode().value() == 401) {
                 errorMessage = "Gmail API authentication failed. Please reconnect your Google account.";
@@ -225,8 +227,8 @@ public class GmailClient {
                     .map(m -> (String) m.get("id"))
                     .toList();
         } catch (HttpClientErrorException e) {
-            log.error("Gmail API error status: {}", e.getStatusCode());
-            log.error("Gmail API error body: {}", e.getResponseBodyAsString());
+            log.error("[GMAIL_API_ERROR] operation=fetchLast50InboxMessageIds statusCode={} errorBody={}", 
+                    e.getStatusCode(), e.getResponseBodyAsString());
             String errorMessage = "Failed to fetch inbox messages from Gmail API";
             if (e.getStatusCode().value() == 401) {
                 errorMessage = "Gmail API authentication failed. Please reconnect your Google account.";
@@ -235,7 +237,7 @@ public class GmailClient {
             }
             throw new GmailApiException(errorMessage, e.getStatusCode().value(), e.getResponseBodyAsString());
         } catch (Exception e) {
-            log.error("Error fetching inbox message IDs: {}", e.getMessage(), e);
+            log.error("[GMAIL_API_ERROR] operation=fetchLast50InboxMessageIds error={}", e.getMessage(), e);
             throw new RuntimeException("Failed to fetch inbox message IDs: " + e.getMessage(), e);
         }
     }
@@ -328,19 +330,19 @@ public class GmailClient {
                             Map.class
                     );
 
-            log.info("Gmail reply draft created. Status: {}", response.getStatusCode());
-            log.info("Response body: {}", response.getBody());
-
             if (response.getBody() != null) {
                 Map<String, Object> draftResponse = (Map<String, Object>) response.getBody();
-                return (String) draftResponse.get("id");
+                String draftId = (String) draftResponse.get("id");
+                log.info("[GMAIL_OPERATION] operation=createReplyDraft threadId={} draftId={} statusCode={}", 
+                        threadId, draftId, response.getStatusCode());
+                return draftId;
             }
 
             throw new RuntimeException("Gmail API returned null response body");
 
         } catch (HttpClientErrorException e) {
-            log.error("Gmail API error status: {}", e.getStatusCode());
-            log.error("Gmail API error body: {}", e.getResponseBodyAsString());
+            log.error("[GMAIL_API_ERROR] operation=createReplyDraft threadId={} statusCode={} errorBody={}", 
+                    threadId, e.getStatusCode(), e.getResponseBodyAsString());
             String errorMessage = "Failed to create reply draft in Gmail API";
             if (e.getStatusCode().value() == 401) {
                 errorMessage = "Gmail API authentication failed. Please reconnect your Google account.";
@@ -393,12 +395,12 @@ public class GmailClient {
                             Map.class
                     );
 
-            log.info("Gmail reply sent. Status: {}", response.getStatusCode());
-            log.info("Response body: {}", response.getBody());
+            log.info("[GMAIL_OPERATION] operation=sendReply threadId={} to={} statusCode={}", 
+                    threadId, to, response.getStatusCode());
 
         } catch (HttpClientErrorException e) {
-            log.error("Gmail API error status: {}", e.getStatusCode());
-            log.error("Gmail API error body: {}", e.getResponseBodyAsString());
+            log.error("[GMAIL_API_ERROR] operation=sendReply threadId={} to={} statusCode={} errorBody={}", 
+                    threadId, to, e.getStatusCode(), e.getResponseBodyAsString());
             String errorMessage = "Failed to send reply in Gmail API";
             if (e.getStatusCode().value() == 401) {
                 errorMessage = "Gmail API authentication failed. Please reconnect your Google account.";
@@ -406,6 +408,14 @@ public class GmailClient {
                 errorMessage = "Gmail API access forbidden. Please check your permissions.";
             }
             throw new GmailApiException(errorMessage, e.getStatusCode().value(), e.getResponseBodyAsString());
+        } catch (HttpServerErrorException e) {
+            log.error("[GMAIL_API_ERROR] operation=sendReply threadId={} to={} statusCode={} errorBody={} (retryable)", 
+                    threadId, to, e.getStatusCode(), e.getResponseBodyAsString());
+            throw new GmailApiException("Gmail API server error: " + e.getMessage(), e.getStatusCode().value(), e.getResponseBodyAsString());
+        } catch (RestClientException e) {
+            log.error("[GMAIL_API_ERROR] operation=sendReply threadId={} to={} error={} (retryable)", 
+                    threadId, to, e.getMessage(), e);
+            throw e; // Re-throw to allow retry logic to handle it
         }
     }
 
@@ -423,8 +433,8 @@ public class GmailClient {
 
             return response.getBody();
         } catch (HttpClientErrorException e) {
-            log.error("Gmail API error status: {}", e.getStatusCode());
-            log.error("Gmail API error body: {}", e.getResponseBodyAsString());
+            log.error("[GMAIL_API_ERROR] operation=fetchThreadById threadId={} statusCode={} errorBody={}", 
+                    threadId, e.getStatusCode(), e.getResponseBodyAsString());
             String errorMessage = "Failed to fetch thread from Gmail API";
             if (e.getStatusCode().value() == 401) {
                 errorMessage = "Gmail API authentication failed. Please reconnect your Google account.";
@@ -485,27 +495,28 @@ public class GmailClient {
                             Map.class
                     );
 
-            log.info("Gmail reply draft updated. Status: {}", response.getStatusCode());
-            log.info("Response body: {}", response.getBody());
-
             if (response.getBody() != null) {
                 Map<String, Object> draftResponse = (Map<String, Object>) response.getBody();
-                return (String) draftResponse.get("id");
+                String updatedDraftId = (String) draftResponse.get("id");
+                log.info("[GMAIL_OPERATION] operation=updateReplyDraft draftId={} threadId={} statusCode={}", 
+                        updatedDraftId, threadId, response.getStatusCode());
+                return updatedDraftId;
             }
 
+            log.info("[GMAIL_OPERATION] operation=updateReplyDraft draftId={} threadId={} statusCode={}", 
+                    draftId, threadId, response.getStatusCode());
             return draftId;
 
         } catch (HttpClientErrorException e) {
-            log.error("Gmail API error status: {}", e.getStatusCode());
-            log.error("Gmail API error body: {}", e.getResponseBodyAsString());
+            log.error("[GMAIL_API_ERROR] operation=updateReplyDraft draftId={} threadId={} statusCode={} errorBody={}", 
+                    draftId, threadId, e.getStatusCode(), e.getResponseBodyAsString());
             String errorMessage = "Failed to update reply draft in Gmail API";
             if (e.getStatusCode().value() == 401) {
                 errorMessage = "Gmail API authentication failed. Please reconnect your Google account.";
             } else if (e.getStatusCode().value() == 403) {
                 errorMessage = "Gmail API access forbidden. Please check your permissions.";
             } else if (e.getStatusCode().value() == 404) {
-                // Draft might have been deleted, create a new one
-                log.warn("Draft not found, creating new draft");
+                log.warn("[GMAIL_OPERATION] Draft not found, creating new draft draftId={} threadId={}", draftId, threadId);
                 return createReplyDraft(accessToken, to, subject, body, threadId, messageId);
             }
             throw new GmailApiException(errorMessage, e.getStatusCode().value(), e.getResponseBodyAsString());
@@ -526,18 +537,17 @@ public class GmailClient {
                     Void.class
             );
 
-            log.info("Gmail draft deleted successfully. Draft ID: {}", draftId);
+            log.info("[GMAIL_OPERATION] operation=deleteDraft draftId={} statusCode=200", draftId);
 
         } catch (HttpClientErrorException e) {
-            log.error("Gmail API error status: {}", e.getStatusCode());
-            log.error("Gmail API error body: {}", e.getResponseBodyAsString());
-            
             // If draft is already deleted (404), that's fine - just log it
             if (e.getStatusCode().value() == 404) {
-                log.warn("Draft {} not found in Gmail (may have been already deleted)", draftId);
+                log.warn("[GMAIL_OPERATION] Draft not found in Gmail (may have been already deleted) draftId={}", draftId);
                 return;
             }
             
+            log.error("[GMAIL_API_ERROR] operation=deleteDraft draftId={} statusCode={} errorBody={}", 
+                    draftId, e.getStatusCode(), e.getResponseBodyAsString());
             String errorMessage = "Failed to delete draft in Gmail API";
             if (e.getStatusCode().value() == 401) {
                 errorMessage = "Gmail API authentication failed. Please reconnect your Google account.";
